@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using BepInEx;
@@ -34,9 +35,10 @@ namespace StructureDamageTweaks
             public string defaultItems = "";
             public string defaultItemModifiers = "";
             public string defaultIdentifiers = "";
+            static public readonly CultureInfo cultureInfo = new CultureInfo("en-US");
             virtual public bool IsInCategory(WearNTear __instance)
             {
-                if (onlyPlayerStructures && __instance.GetComponent<Piece>().GetCreator() == 0L)
+                if (onlyPlayerStructures && (__instance.GetComponent<Piece>() == null  || __instance.GetComponent<Piece>().GetCreator() == 0L))
                     return false;
                 return true;
             }
@@ -109,7 +111,7 @@ namespace StructureDamageTweaks
             {
                 name = parent.Config.Bind<string>(id, "name", name, "Only used in game with logging enabled. Though I advice naming your categories for clarity").Value;
                 onlyPlayerStructures = parent.Config.Bind<bool>(id, "OnlyPlayerStructures", onlyPlayerStructures, "Determines whether this group only applies to structures build by any player. Be aware, that if this is false, this may include beehives or other structures that you actually want to destroy.").Value;
-                string tmp = parent.Config.Bind<string>(id, "GlobalKeysNames", defaultGlobalKeys, "Global keys that apply modifiers. First applicable key will be used. Example values: defeated_eikthyr,defeated_gdking,defeated_bonemass,defeated_dragon,defeated_goblinking,defeated_MourningQueen,KilledJotunn,defeated_damnedone").Value;
+                string tmp = parent.Config.Bind<string>(id, "GlobalKeysNames", defaultGlobalKeys, "Global keys that apply modifiers. First applicable key will be used. Example values: defeated_eikthyr,defeated_gdking,defeated_bonemass,defeated_dragon,defeated_goblinking. EVA: Killed_HelDemon,Killed_Jotunn,Killed_SvartalfarQueen").Value;
                 globalKeys = tmp.Split(',').ToList().ConvertAll(x => x.Trim(' '));
                 globalKeysMultipliers = StringToFloatList(1f,parent.Config.Bind<string>(id, "GlobalKeysMultipliers", defaultGlobalKeysMultipliers, "Damage multipliers per name. First applicable multiplier will be used. This list should have the same length as 'GlobalKeysNames'. Values that cannot be converted to a float will be ignored. Values below zero would repair a structure and are not adviced. Below one reduces damage to structures. Above one will increase damage.").Value);
                 StripList < string >(ref globalKeys, globalKeysMultipliers.Count);
@@ -243,17 +245,17 @@ namespace StructureDamageTweaks
             {
                 categories[0].name = "Ships";
                 categories[0].defaultIdentifiers = "raft,karve,vikingship,littleboat,cargoship,bigcargoship";
-                categories[0].defaultGlobalKeys = "defeated_damnedone,KilledJotunn,defeated_MourningQueen,defeated_goblinking";
+                categories[0].defaultGlobalKeys = "Killed_HelDemon,Killed_Jotunn,Killed_SvartalfarQueen,defeated_goblinking";
                 categories[0].defaultGlobalKeysMultipliers = "0.01,0.2,0.3,0.5";
             }
             //categories.Add(new MaterialCategory() { id = "Category" + catNum });
             //{
             //    categories.Last().name = "IronExample";
             //    categories.Last().defaultIdentifiers = "Iron";
-            //    categories.Last().defaultGlobalKeys = "defeated_damnedone,KilledJotunn,defeated_MourningQueen,defeated_goblinking";
+            //    categories.Last().defaultGlobalKeys = "Killed_HelDemon,Killed_Jotunn,Killed_SvartalfarQueen,defeated_goblinking";
             //    categories.Last().defaultGlobalKeysMultipliers = "0.01,0.2,0.3,0.5";
             //}
-            categories.Add(new Category() { id = "CategoryDefault", name = "Default", defaultGlobalKeys = "defeated_damnedone,KilledJotunn,defeated_MourningQueen,defeated_goblinking", defaultGlobalKeysMultipliers = "0.1,0.2,0.3,0.5" });
+            categories.Add(new Category() { id = "CategoryDefault", name = "Default", defaultGlobalKeys = "Killed_HelDemon,Killed_Jotunn,Killed_SvartalfarQueen,defeated_goblinking", defaultGlobalKeysMultipliers = "0.1,0.2,0.3,0.5" });
             foreach (var cat in categories)
             {
                 cat.Init(this);
@@ -310,7 +312,7 @@ namespace StructureDamageTweaks
             List<string> tmpList = inString.Split(',').ToList();
             foreach (var s in tmpList)
             {
-                if (float.TryParse(s, out float f))
+                if (float.TryParse(s, NumberStyles.Any, Category.cultureInfo, out float f))
                     ret.Add(f);
                 else
                     ret.Add(defaultVal);
@@ -445,40 +447,43 @@ namespace StructureDamageTweaks
             // Token: 0x06000005 RID: 5 RVA: 0x000021B0 File Offset: 0x000003B0
             private static bool Prefix(Terminal __instance)
             {
-                string text = __instance.m_input.text;
-                if (text.ToLower().Equals("structuredamagetweaks reset"))
+                string text = __instance.m_input.text.ToLower();
+                if (text.StartsWith("structuredamagetweaks"))
                 {
-                    StructureDamageTweaks._instance.Reload();
-                    Traverse.Create(__instance).Method("AddString", new object[]
+                    if (text.ToLower().Equals("structuredamagetweaks reset"))
                     {
+                        StructureDamageTweaks._instance.Reload();
+                        Traverse.Create(__instance).Method("AddString", new object[]
+                        {
                         text
-                    }).GetValue();
-                    Traverse.Create(__instance).Method("AddString", new object[]
-                    {
+                        }).GetValue();
+                        Traverse.Create(__instance).Method("AddString", new object[]
+                        {
                         "Structure Damage Tweaks config reloaded"
-                    }).GetValue();
-                    return false;
-                }
-                else if (text.ToLower().Equals("structuredamagetweaks inventory"))
-                {
-                    foreach (var item in Player.m_localPlayer.GetInventory()?.GetAllItems() ?? new List<ItemDrop.ItemData>(0))
-                    {
-                        string s = "Item Token Name: '" + item.m_shared.m_name+"'";
-                        _instance.Logger.LogInfo(s); //this also outputs to console
-                        //Traverse.Create(__instance).Method("AddString", new object[]
-                        //{
-                        //    s
-                        //}).GetValue();
+                        }).GetValue();
                     }
-                    Traverse.Create(__instance).Method("AddString", new object[]
+                    else if (text.ToLower().Equals("structuredamagetweaks inventory"))
                     {
+                        foreach (var item in Player.m_localPlayer.GetInventory()?.GetAllItems() ?? new List<ItemDrop.ItemData>(0))
+                        {
+                            string s = "Item Token Name: '" + item.m_shared.m_name + "'";
+                            _instance.Logger.LogInfo(s); //this also outputs to console
+                        }
+                        Traverse.Create(__instance).Method("AddString", new object[]
+                        {
                         "Finished printing inventory"
-                    }).GetValue();
+                        }).GetValue();
+                    }
+                    else
+                    {
+                        Traverse.Create(__instance).Method("AddString", new object[]
+                        {
+                        "Incorrect argument. Possible: with keyword 'reset': Reload config of Stucture DamageTweaks. With keyword 'inventory': Display item names currently in your inventory (for use in config file)"
+                        }).GetValue();
+                    }
                     return false;
                 }
-                {
-                    return true;
-                }
+                return true;
             }
         }
         [HarmonyPatch(typeof(Terminal), "InitTerminal")]
