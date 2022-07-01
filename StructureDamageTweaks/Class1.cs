@@ -10,9 +10,11 @@ using UnityEngine;
 
 namespace StructureDamageTweaks
 {
-    [BepInPlugin(PluginId, "Structure Damage Tweaks", "1.0.3")]
+    [BepInPlugin(PluginId, "Structure Damage Tweaks", "1.1.0")]
     public class StructureDamageTweaks : BaseUnityPlugin
     {
+        static public ConfigEntry<bool> preventTamedDamage;
+        static public ConfigEntry<bool> preventTamedDamageNonPlayer;
         public class Category
         {
             public string id;
@@ -226,6 +228,8 @@ namespace StructureDamageTweaks
         public void Init()
         {
             _loggingEnabled = Config.Bind("Logging", "Logging Enabled", false, "Enable logging. Please be aware, that enabling this together with auto repair will slow your game each time auto repair is performed if you are in a region with many instances that are in need of repairs.");
+            preventTamedDamage = Config.Bind("TamedCreatures", "PreventTamedDamage", true, "If enabled, tamed creatures do no damage to player created structures.");
+            preventTamedDamageNonPlayer = Config.Bind("TamedCreatures", "NonPlayerStructures", false, "If enabled, extends PreventTamedDamage to non-player-structures.");
             uint catNum = Config.Bind<uint>("Category", "NumberOfCategories", 1, "Number of additional categories for which damage reductions may be defined. Remark: You can use a category to exclude structures from another category. Each structure can always be in only one category and they are tested zero first, ..., default last").Value;
             autoRepairTimer = Config.Bind<uint>("AutoRepair", "Timer", 120, "Timer in seconds on how often auto repair is applied if the player has an according item (see in categories). Disabled if value is zero. Low values not adviced.").Value;
             for (uint i = 0; i < catNum; ++i)
@@ -440,6 +444,29 @@ namespace StructureDamageTweaks
             }
 
         }
+
+        [HarmonyPatch(typeof(WearNTear), "RPC_Damage")]
+        private static class TamedStructureDamage
+        {
+            private static void Prefix(ref HitData hit, Piece ___m_piece)
+            {
+                if (StructureDamageTweaks.preventTamedDamage.Value && hit!=null)
+                {
+                    Character attacker= hit.GetAttacker();
+                    if (attacker!=null)
+                    {
+                        if (attacker.IsTamed())
+                        {
+                            if (StructureDamageTweaks.preventTamedDamageNonPlayer.Value || (___m_piece != null && ___m_piece.GetCreator() != 0L))
+                            {
+                                hit.m_damage.Modify(0);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
 
         [HarmonyPatch(typeof(Terminal), "InputText")]
         private static class InputText_Patch
