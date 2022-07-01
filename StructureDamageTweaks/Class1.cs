@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace StructureDamageTweaks
 {
-    [BepInPlugin(PluginId, "Structure Damage Tweaks", "1.0.0")]
+    [BepInPlugin(PluginId, "Structure Damage Tweaks", "1.0.3")]
     public class StructureDamageTweaks : BaseUnityPlugin
     {
         public class Category
@@ -468,6 +468,9 @@ namespace StructureDamageTweaks
                         {
                             string s = "Item Token Name: '" + item.m_shared.m_name + "'";
                             _instance.Logger.LogInfo(s); //this also outputs to console
+                            //Log("item.m_shared.m_itemType: " + item.m_shared.m_itemType);
+                            //if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Misc)
+                            //    item.m_shared.m_itemType = ItemDrop.ItemData.ItemType.Material;
                         }
                         Traverse.Create(__instance).Method("AddString", new object[]
                         {
