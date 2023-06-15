@@ -367,7 +367,7 @@ namespace StructureDamageTweaks
             {
                 if (ZNetScene.instance)
                 {
-                    List<WearNTear> allInstaces = WearNTear.GetAllInstaces();
+                    List<WearNTear> allInstaces = WearNTear.GetAllInstances();
                     if (allInstaces.Count > 0)
                     {
                         foreach (WearNTear wearNTear in allInstaces)
