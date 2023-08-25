@@ -467,7 +467,6 @@ namespace StructureDamageTweaks
             }
         }
 
-
         [HarmonyPatch(typeof(Terminal), "InputText")]
         private static class InputText_Patch
         {
@@ -524,7 +523,6 @@ namespace StructureDamageTweaks
                 new Terminal.ConsoleCommand("structuredamagetweaks", "with keyword 'reset': Reload config of Stucture DamageTweaks. With keyword 'inventory': Display item names currently in your inventory (for use in config file)", null);
             }
         }
-
     }
     
 }
