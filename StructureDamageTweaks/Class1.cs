@@ -479,6 +479,16 @@ namespace StructureDamageTweaks
             }
         }
 
+        [HarmonyPatch(typeof(WearNTear), "HaveRoof")]
+        private static class RainDamageRemovalB
+        {
+            public static void Postfix(ref bool __result)
+            {
+                if (preventRainDamage.Value)
+                    __result = true;
+            }
+        }
+
         [HarmonyPatch(typeof(Terminal), "InputText")]
         private static class InputText_Patch
         {
