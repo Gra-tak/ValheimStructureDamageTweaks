@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace StructureDamageTweaks
 {
-    [BepInPlugin(PluginId, "Structure Damage Tweaks", "1.1.0")]
+    [BepInPlugin(PluginId, "Structure Damage Tweaks", "1.2.4")]
     public class StructureDamageTweaks : BaseUnityPlugin
     {
         static public ConfigEntry<bool> preventRainDamage;
