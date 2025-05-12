@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace StructureDamageTweaks
 {
-    [BepInPlugin(PluginId, "Structure Damage Tweaks", "1.2.4")]
+    [BepInPlugin(PluginId, "Structure Damage Tweaks", "1.3.0")]
     public class StructureDamageTweaks : BaseUnityPlugin
     {
         static public ConfigEntry<bool> preventRainDamage;
@@ -47,7 +47,7 @@ namespace StructureDamageTweaks
             }
             public float ComputeMultiplier(ref WearNTear __instance)
             {
-                float ret = 1;
+                float ret = globalKeysMultipliers.Last();
                 for (int i = 0; i < globalKeys.Count; ++i)
                 {
                     if (ZoneSystem.instance.GetGlobalKey(globalKeys[i]))
@@ -116,18 +116,20 @@ namespace StructureDamageTweaks
                 onlyPlayerStructures = parent.Config.Bind<bool>(id, "OnlyPlayerStructures", onlyPlayerStructures, "Determines whether this group only applies to structures build by any player. Be aware, that if this is false, this may include beehives or other structures that you actually want to destroy.").Value;
                 string tmp = parent.Config.Bind<string>(id, "GlobalKeysNames", defaultGlobalKeys, "Global keys that apply modifiers. First applicable key will be used. Example values: defeated_eikthyr,defeated_gdking,defeated_bonemass,defeated_dragon,defeated_goblinking. EVA: Killed_HelDemon,Killed_Jotunn,Killed_SvartalfarQueen").Value;
                 globalKeys = tmp.Split(',').ToList().ConvertAll(x => x.Trim(' '));
-                globalKeysMultipliers = StringToFloatList(1f,parent.Config.Bind<string>(id, "GlobalKeysMultipliers", defaultGlobalKeysMultipliers, "Damage multipliers per name. First applicable multiplier will be used. This list should have the same length as 'GlobalKeysNames'. Values that cannot be converted to a float will be ignored. Values below zero would repair a structure and are not adviced. Below one reduces damage to structures. Above one will increase damage.").Value);
+                globalKeysMultipliers = StringToFloatList(1f,parent.Config.Bind<string>(id, "GlobalKeysMultipliers", defaultGlobalKeysMultipliers, "Damage multipliers per name. First applicable multiplier will be used. This list should have one more entry than 'GlobalKeysNames' (same length also possible). Values that cannot be converted to a float will be ignored. Values below zero would repair a structure and are not adviced. Below one reduces damage to structures. Above one will increase damage.").Value);
                 StripList < string >(ref globalKeys, globalKeysMultipliers.Count);
+                if (globalKeysMultipliers.Count == globalKeys.Count)
+                    globalKeysMultipliers.Add(1);
 
-                tmp = parent.Config.Bind<string>(id, "ItemInInventoryRequirements", "Yagluth thing", "'Token name' of items that apply modifiers if in player inventory. See https://github.com/Valheim-Modding/Wiki/wiki/ObjectDB-Table for vanilla items. You can use 'structuredamagetweaks inventory' ingame to print a full list of 'Token names' for what is currently in your inventory. First applicable item with an actuall effect (see below) in this list will be used.").Value;
+                tmp = parent.Config.Bind<string>(id, "ItemInInventoryRequirements", "", "'Token name' of items that apply modifiers if in player inventory. See https://github.com/Valheim-Modding/Wiki/wiki/ObjectDB-Table for vanilla items. You can use 'structuredamagetweaks inventory' ingame to print a full list of 'Token names' for what is currently in your inventory. First applicable item with an actuall effect (see below) in this list will be used.").Value;
                 items = tmp.Split(',').ToList().ConvertAll(x => x.Trim(' '));
-                itemsMultipliers = StringToFloatList(1f, parent.Config.Bind<string>(id, "ItemInInventoryMultipliers", "0.5", "Damage multipliers per item. First applicable multiplier that is unequal to '1' will be used. This list should have the same length as 'ItemInInventoryRequirements'. Missing or non-float-convertable ones will be set to '1', i.e. no effect. Values below zero would repair a structure and are not adviced. Below one reduces damage to structures. Above one will increase damage.").Value);
+                itemsMultipliers = StringToFloatList(1f, parent.Config.Bind<string>(id, "ItemInInventoryMultipliers", "", "Damage multipliers per item. First applicable multiplier that is unequal to '1' will be used. This list should have the same length as 'ItemInInventoryRequirements'. Missing or non-float-convertable ones will be set to '1', i.e. no effect. Values below zero would repair a structure and are not adviced. Below one reduces damage to structures. Above one will increase damage.").Value);
                 numProtectionItems = itemsMultipliers.Count(x => x != 1.0);
                 FillList<float>(ref itemsMultipliers, items.Count, 1f);
-                itemsAutoRepairPercentage = StringToFloatList(0f,parent.Config.Bind<string>(id, "ItemInInventoryAutoRepairPercentage", "5", "Amount of auto-repair per item. All structures in range will be repaired by this percentage every '[AutoRepair]Timer' seconds. First applicable non-zero value will be used. This list should have the same length as 'ItemInInventoryRequirements', missing entries will be set to zero, i.e. no effect.").Value);
+                itemsAutoRepairPercentage = StringToFloatList(0f,parent.Config.Bind<string>(id, "ItemInInventoryAutoRepairPercentage", "", "Amount of auto-repair per item. All structures in range will be repaired by this percentage every '[AutoRepair]Timer' seconds. First applicable non-zero value will be used. This list should have the same length as 'ItemInInventoryRequirements', missing entries will be set to zero, i.e. no effect.").Value);
                 numRepairItems = itemsAutoRepairPercentage.Count(x => x != 0);
                 FillList<float>(ref itemsAutoRepairPercentage, items.Count, 0f);
-                itemsRange = StringToFloatList(10f, parent.Config.Bind<string>(id, "ItemInInventoryRange", "100", "Range per item.Checked per structure.This is a restriction as to when an item is 'applicable', see above.This list should have the same length as 'ItemInInventoryRequirements', missing entries will be set to the maximum given range, or '10' should the whole list be empty.Different items with different ranges can work together if ordered correctly: Put strong short range items first.").Value);
+                itemsRange = StringToFloatList(10f, parent.Config.Bind<string>(id, "ItemInInventoryRange", "", "Range per item.Checked per structure.This is a restriction as to when an item is 'applicable', see above.This list should have the same length as 'ItemInInventoryRequirements', missing entries will be set to the maximum given range, or '10' should the whole list be empty.Different items with different ranges can work together if ordered correctly: Put strong short range items first.").Value);
                 if (itemsRange.Count > 0)
                     maxRange = itemsRange.Max();
                 else 
@@ -250,9 +252,9 @@ namespace StructureDamageTweaks
             if (categories.Count > 0)
             {
                 categories[0].name = "Ships";
-                categories[0].defaultIdentifiers = "raft,karve,vikingship,littleboat,cargoship,bigcargoship";
-                categories[0].defaultGlobalKeys = "Killed_HelDemon,Killed_Jotunn,Killed_SvartalfarQueen,defeated_goblinking";
-                categories[0].defaultGlobalKeysMultipliers = "0.01,0.2,0.3,0.5";
+                categories[0].defaultIdentifiers = "cart,raft,karve,vikingship,vikingship_ashlands,littleboat,cargoship,bigcargoship";
+                categories[0].defaultGlobalKeys = "defeated_fader,defeated_queen,defeated_goblinking";
+                categories[0].defaultGlobalKeysMultipliers = "0.2,0.3,0.5,1";
             }
             //categories.Add(new MaterialCategory() { id = "Category" + catNum });
             //{
@@ -261,7 +263,7 @@ namespace StructureDamageTweaks
             //    categories.Last().defaultGlobalKeys = "Killed_HelDemon,Killed_Jotunn,Killed_SvartalfarQueen,defeated_goblinking";
             //    categories.Last().defaultGlobalKeysMultipliers = "0.01,0.2,0.3,0.5";
             //}
-            categories.Add(new Category() { id = "CategoryDefault", name = "Default", defaultGlobalKeys = "Killed_HelDemon,Killed_Jotunn,Killed_SvartalfarQueen,defeated_goblinking", defaultGlobalKeysMultipliers = "0.1,0.2,0.3,0.5" });
+            categories.Add(new Category() { id = "CategoryDefault", name = "Default", defaultGlobalKeys = "defeated_fader,defeated_queen,defeated_goblinking", defaultGlobalKeysMultipliers = "0.2,0.3,0.5,1" });
             foreach (var cat in categories)
             {
                 cat.Init(this);
